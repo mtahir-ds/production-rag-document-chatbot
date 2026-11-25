@@ -12,7 +12,9 @@ from app.main import create_app
 def test_health_endpoint_returns_200_and_request_id(tmp_path: Path) -> None:
     """Verify /health returns 200 OK, healthy database status, and X-Request-ID."""
     settings = Settings(
+        _env_file=None,
         app_env="test",
+        qdrant_mode="local",
         sqlite_db_path=str(tmp_path / "test.db"),
         upload_dir=str(tmp_path / "uploads"),
         qdrant_path=str(tmp_path / "qdrant"),
