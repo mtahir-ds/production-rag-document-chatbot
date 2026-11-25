@@ -133,3 +133,95 @@ class DatabaseManager:
                     now,
                 ),
             )
+
+    # --- Document Registry CRUD ---
+
+    def get_document_by_hash(self, user_id: str, file_hash: str) -> dict | None:
+        """Return an existing document record if this user already uploaded the same hash."""
+        with self.connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM documents WHERE user_id = ? AND file_hash = ?;",
+                (user_id, file_hash),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def create_document(
+        self,
+        *,
+        document_id: str,
+        user_id: str,
+        filename: str,
+        file_type: str,
+        file_size_bytes: int,
+        file_hash: str,
+        page_count: int,
+        chunk_count: int,
+        storage_path: str,
+        status: str = "ingested",
+    ) -> dict:
+        """Insert a newly ingested document record and return it."""
+        now = datetime.now(timezone.utc).isoformat()
+        with self.connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO documents (
+                    document_id, user_id, filename, file_type, file_size_bytes,
+                    file_hash, page_count, chunk_count, storage_path, status, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                """,
+                (
+                    document_id,
+                    user_id,
+                    filename,
+                    file_type,
+                    file_size_bytes,
+                    file_hash,
+                    page_count,
+                    chunk_count,
+                    storage_path,
+                    status,
+                    now,
+                ),
+            )
+        return {
+            "document_id": document_id,
+            "user_id": user_id,
+            "filename": filename,
+            "file_type": file_type,
+            "file_size_bytes": file_size_bytes,
+            "file_hash": file_hash,
+            "page_count": page_count,
+            "chunk_count": chunk_count,
+            "storage_path": storage_path,
+            "status": status,
+            "created_at": now,
+        }
+
+    def list_documents(self, user_id: str) -> list[dict]:
+        """Return all documents owned by the given user, newest first."""
+        with self.connection() as conn:
+            rows = conn.execute(
+                "SELECT * FROM documents WHERE user_id = ? ORDER BY created_at DESC;",
+                (user_id,),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_document(self, document_id: str, user_id: str) -> dict | None:
+        """Fetch a single document owned by the given user."""
+        with self.connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM documents WHERE document_id = ? AND user_id = ?;",
+                (document_id, user_id),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def delete_document(self, document_id: str, user_id: str) -> bool:
+        """Delete a document record for the given user; return True if a row was removed."""
+        with self.connection() as conn:
+            cursor = conn.execute(
+                "DELETE FROM documents WHERE document_id = ? AND user_id = ?;",
+                (document_id, user_id),
+            )
+            return cursor.rowcount > 0
+

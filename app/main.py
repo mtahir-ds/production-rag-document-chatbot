@@ -1,4 +1,4 @@
-"""FastAPI application entry point, middleware, error handlers, and health route."""
+"""FastAPI application entry point, middleware, error handlers, and routes."""
 
 import logging
 import time
@@ -14,26 +14,57 @@ from fastapi.responses import JSONResponse
 
 from app.config import Settings, get_settings
 from app.logging_config import configure_logging, request_id_ctx
+from app.routes.documents import router as documents_router
 from app.schemas import ErrorResponse, HealthResponse
 from app.services.database import DatabaseManager
+from app.services.embeddings import GeminiEmbeddingService
+from app.services.exceptions import ExternalServiceError
+from app.services.ingestion_service import IngestionService
+from app.services.vector_store import QdrantVectorStore
 
 logger = logging.getLogger(__name__)
 
 
-def create_app(settings_override: Settings | None = None) -> FastAPI:
+def create_app(
+    settings_override: Settings | None = None,
+    *,
+    embeddings_override: GeminiEmbeddingService | None = None,
+    vector_store_override: QdrantVectorStore | None = None,
+) -> FastAPI:
     """Construct and configure the FastAPI application instance."""
     settings = settings_override or get_settings()
     configure_logging(settings.log_level)
     db = DatabaseManager(settings.sqlite_db_path)
 
-    @asynccontextmanager
-    async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
+    def _init_services(app_instance: FastAPI) -> None:
         settings.ensure_directories()
         db.init_db()
+        embeddings = embeddings_override or GeminiEmbeddingService(settings)
+        vector_store = vector_store_override or QdrantVectorStore(settings)
+        ingestion_service = IngestionService(
+            settings=settings,
+            db=db,
+            embeddings=embeddings,
+            vector_store=vector_store,
+        )
         app_instance.state.settings = settings
         app_instance.state.db = db
-        logger.info("Service started (env=%s)", settings.app_env)
+        app_instance.state.embeddings = embeddings
+        app_instance.state.vector_store = vector_store
+        app_instance.state.ingestion_service = ingestion_service
+
+    @asynccontextmanager
+    async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
+        _init_services(app_instance)
+        logger.info(
+            "Service started (env=%s, qdrant_mode=%s)",
+            settings.app_env,
+            settings.qdrant_mode,
+        )
         yield
+        vector_store = getattr(app_instance.state, "vector_store", None)
+        if vector_store is not None:
+            vector_store.close()
         logger.info("Service shutting down")
 
     app = FastAPI(
@@ -46,7 +77,7 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
 
-    # Ensure state is available immediately even if lifespan is bypassed in unit tests.
+    # Initialize state safely for tests that call routes without triggering lifespan.
     app.state.settings = settings
     app.state.db = db
 
@@ -92,6 +123,22 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
         request_id_ctx.reset(token)
         return response
 
+    @app.exception_handler(ExternalServiceError)
+    async def external_service_exception_handler(
+        request: Request, exc: ExternalServiceError
+    ) -> JSONResponse:
+        req_id = getattr(request.state, "request_id", "-")
+        payload = ErrorResponse(
+            error=f"{exc.service} Unavailable",
+            detail=exc.detail,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            request_id=req_id,
+        )
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content=payload.model_dump(),
+        )
+
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
         req_id = getattr(request.state, "request_id", "-")
@@ -132,6 +179,8 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=payload.model_dump(),
         )
+
+    app.include_router(documents_router)
 
     @app.get(
         "/health",
