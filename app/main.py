@@ -1,0 +1,162 @@
+"""FastAPI application entry point, middleware, error handlers, and health route."""
+
+import logging
+import time
+import uuid
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from typing import AsyncIterator
+
+from fastapi import FastAPI, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.config import Settings, get_settings
+from app.logging_config import configure_logging, request_id_ctx
+from app.schemas import ErrorResponse, HealthResponse
+from app.services.database import DatabaseManager
+
+logger = logging.getLogger(__name__)
+
+
+def create_app(settings_override: Settings | None = None) -> FastAPI:
+    """Construct and configure the FastAPI application instance."""
+    settings = settings_override or get_settings()
+    configure_logging(settings.log_level)
+    db = DatabaseManager(settings.sqlite_db_path)
+
+    @asynccontextmanager
+    async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
+        settings.ensure_directories()
+        db.init_db()
+        app_instance.state.settings = settings
+        app_instance.state.db = db
+        logger.info("Service started (env=%s)", settings.app_env)
+        yield
+        logger.info("Service shutting down")
+
+    app = FastAPI(
+        title=settings.app_name,
+        version=settings.app_version,
+        description=(
+            "Production-grade Retrieval-Augmented Generation (RAG) service with "
+            "document ingestion, grounded citations, guardrails, and observability."
+        ),
+        lifespan=lifespan,
+    )
+
+    # Ensure state is available immediately even if lifespan is bypassed in unit tests.
+    app.state.settings = settings
+    app.state.db = db
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    @app.middleware("http")
+    async def request_logging_middleware(request: Request, call_next):
+        """Attach a request ID, measure latency, and log every request safely."""
+        req_id = f"req_{uuid.uuid4().hex[:12]}"
+        token = request_id_ctx.set(req_id)
+        request.state.request_id = req_id
+        start_time = time.perf_counter()
+
+        try:
+            response = await call_next(request)
+        except Exception as exc:
+            latency_ms = (time.perf_counter() - start_time) * 1000
+            logger.exception(
+                "Unhandled error on %s %s (%.2f ms): %s",
+                request.method,
+                request.url.path,
+                latency_ms,
+                type(exc).__name__,
+            )
+            request_id_ctx.reset(token)
+            raise
+
+        latency_ms = (time.perf_counter() - start_time) * 1000
+        response.headers["X-Request-ID"] = req_id
+        logger.info(
+            "%s %s -> %d (%.2f ms)",
+            request.method,
+            request.url.path,
+            response.status_code,
+            latency_ms,
+        )
+        request_id_ctx.reset(token)
+        return response
+
+    @app.exception_handler(HTTPException)
+    async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+        req_id = getattr(request.state, "request_id", "-")
+        payload = ErrorResponse(
+            error="HTTP Error",
+            detail=exc.detail,
+            status_code=exc.status_code,
+            request_id=req_id,
+        )
+        return JSONResponse(status_code=exc.status_code, content=payload.model_dump())
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        req_id = getattr(request.state, "request_id", "-")
+        payload = ErrorResponse(
+            error="Validation Error",
+            detail=exc.errors(),
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            request_id=req_id,
+        )
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content=payload.model_dump(),
+        )
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        req_id = getattr(request.state, "request_id", "-")
+        payload = ErrorResponse(
+            error="Internal Server Error",
+            detail="An unexpected error occurred. Please check server logs with your request_id.",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            request_id=req_id,
+        )
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=payload.model_dump(),
+        )
+
+    @app.get(
+        "/health",
+        response_model=HealthResponse,
+        tags=["System"],
+        summary="Check service and database availability",
+    )
+    async def health_check(request: Request) -> HealthResponse:
+        """Return service health metadata and verify SQLite connectivity."""
+        db_ok = request.app.state.db.check_health()
+        if not db_ok:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database health check failed.",
+            )
+        return HealthResponse(
+            status="healthy",
+            app_name=settings.app_name,
+            version=settings.app_version,
+            environment=settings.app_env,
+            database="ok",
+            timestamp=datetime.now(timezone.utc),
+        )
+
+    return app
+
+
+app = create_app()

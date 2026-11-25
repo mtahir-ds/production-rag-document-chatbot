@@ -221,3 +221,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project runtime data, uploads, and vector storage
+data/
+uploads/
+qdrant_storage/
+*.db
+*.sqlite
+*.sqlite3
+
+# Frontend dependencies (keep frontend/dist if serving prebuilt assets or ignore if built in CI)
+frontend/node_modules/
+
