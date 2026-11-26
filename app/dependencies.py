@@ -5,6 +5,7 @@ from fastapi import Request
 from app.config import Settings
 from app.services.database import DatabaseManager
 from app.services.ingestion_service import IngestionService
+from app.services.rag_service import RAGService
 
 DEFAULT_USER_ID = "usr_default"
 
@@ -22,6 +23,11 @@ def get_db(request: Request) -> DatabaseManager:
 def get_ingestion_service(request: Request) -> IngestionService:
     """Return active IngestionService from app state."""
     return request.app.state.ingestion_service
+
+
+def get_rag_service(request: Request) -> RAGService:
+    """Return active RAGService from app state."""
+    return request.app.state.rag_service
 
 
 def get_current_user_id() -> str:
