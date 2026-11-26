@@ -11,15 +11,21 @@ from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
 
 from app.config import Settings, get_settings
+from app.generation import GeminiGenerationService
 from app.logging_config import configure_logging, request_id_ctx
+from app.rate_limiter import limiter
+from app.retrieval import RetrievalService
+from app.routes.chat import router as chat_router
 from app.routes.documents import router as documents_router
 from app.schemas import ErrorResponse, HealthResponse
 from app.services.database import DatabaseManager
 from app.services.embeddings import GeminiEmbeddingService
 from app.services.exceptions import ExternalServiceError
 from app.services.ingestion_service import IngestionService
+from app.services.rag_service import RAGService
 from app.services.vector_store import QdrantVectorStore
 
 logger = logging.getLogger(__name__)
@@ -30,6 +36,8 @@ def create_app(
     *,
     embeddings_override: GeminiEmbeddingService | None = None,
     vector_store_override: QdrantVectorStore | None = None,
+    generation_override: GeminiGenerationService | None = None,
+    enable_rate_limit: bool = True,
 ) -> FastAPI:
     """Construct and configure the FastAPI application instance."""
     settings = settings_override or get_settings()
@@ -39,6 +47,12 @@ def create_app(
     def _init_services(app_instance: FastAPI) -> None:
         settings.ensure_directories()
         db.init_db()
+
+        # Inject rate limits from settings into route-level module vars.
+        import app.routes.chat as chat_route
+        import app.routes.documents as doc_route
+        chat_route._ASK_RATE_LIMIT = settings.rate_limit_ask
+        doc_route._UPLOAD_RATE_LIMIT = settings.rate_limit_upload
         embeddings = embeddings_override or GeminiEmbeddingService(settings)
         vector_store = vector_store_override or QdrantVectorStore(settings)
         ingestion_service = IngestionService(
@@ -47,11 +61,26 @@ def create_app(
             embeddings=embeddings,
             vector_store=vector_store,
         )
+        retrieval_service = RetrievalService(
+            settings=settings,
+            embeddings=embeddings,
+            vector_store=vector_store,
+        )
+        generation_service = generation_override or GeminiGenerationService(settings)
+        rag_service = RAGService(
+            settings=settings,
+            db=db,
+            retrieval=retrieval_service,
+            generation=generation_service,
+        )
         app_instance.state.settings = settings
         app_instance.state.db = db
         app_instance.state.embeddings = embeddings
         app_instance.state.vector_store = vector_store
         app_instance.state.ingestion_service = ingestion_service
+        app_instance.state.retrieval_service = retrieval_service
+        app_instance.state.generation_service = generation_service
+        app_instance.state.rag_service = rag_service
 
     @asynccontextmanager
     async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
@@ -80,6 +109,9 @@ def create_app(
     # Initialize state safely for tests that call routes without triggering lifespan.
     app.state.settings = settings
     app.state.db = db
+    limiter.enabled = enable_rate_limit
+    limiter.reset()
+    app.state.limiter = limiter
 
     app.add_middleware(
         CORSMiddleware,
@@ -180,7 +212,24 @@ def create_app(
             content=payload.model_dump(),
         )
 
+    @app.exception_handler(RateLimitExceeded)
+    async def rate_limit_exception_handler(
+        request: Request, exc: RateLimitExceeded
+    ) -> JSONResponse:
+        req_id = getattr(request.state, "request_id", "-")
+        payload = ErrorResponse(
+            error="Too Many Requests",
+            detail="Rate limit exceeded. Please wait before sending more requests.",
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            request_id=req_id,
+        )
+        return JSONResponse(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            content=payload.model_dump(),
+        )
+
     app.include_router(documents_router)
+    app.include_router(chat_router)
 
     @app.get(
         "/health",

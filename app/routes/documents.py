@@ -1,12 +1,21 @@
 """Thin API routes for document upload, listing, and deletion."""
 
-from fastapi import APIRouter, Depends, File, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Request, Response, UploadFile, status
 
 from app.dependencies import get_current_user_id, get_ingestion_service
+from app.rate_limiter import limiter
 from app.schemas import DocumentListResponse, DocumentUploadResponse, ErrorResponse
 from app.services.ingestion_service import IngestionService
 
 router = APIRouter(prefix="/api/documents", tags=["Documents"])
+
+# Module-level variable read by slowapi at each request (no-arg callable).
+# Injected from settings at app startup; monkeypatchable in tests.
+_UPLOAD_RATE_LIMIT = "10/minute"
+
+
+def _get_upload_rate_limit() -> str:
+    return _UPLOAD_RATE_LIMIT
 
 
 @router.post(
@@ -18,10 +27,13 @@ router = APIRouter(prefix="/api/documents", tags=["Documents"])
         400: {"model": ErrorResponse, "description": "Empty, corrupt, oversized, or unscannable file"},
         409: {"model": ErrorResponse, "description": "Duplicate file already uploaded"},
         415: {"model": ErrorResponse, "description": "Unsupported file type or mismatched MIME"},
+        429: {"model": ErrorResponse, "description": "Upload rate limit exceeded"},
         503: {"model": ErrorResponse, "description": "Embedding API or vector DB unavailable"},
     },
 )
+@limiter.limit(_get_upload_rate_limit)
 async def upload_document(
+    request: Request,
     file: UploadFile = File(..., description="PDF, DOCX, PPTX, TXT, or MD document"),
     user_id: str = Depends(get_current_user_id),
     ingestion: IngestionService = Depends(get_ingestion_service),
