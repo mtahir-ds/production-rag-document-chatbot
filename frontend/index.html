@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DocuMind — AI Document Assistant</title>
+  <meta name="description" content="Production-grade RAG Document Chatbot — ask questions over your uploaded documents with grounded, cited answers." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <span class="brand-icon">⚡</span>
+      <span class="brand-name">DocuMind</span>
+      <span class="brand-tag">RAG</span>
+    </div>
+    <div class="topbar-actions">
+      <div id="model-badge" class="badge badge-model">gemini-2.5-flash</div>
+      <div id="latency-badge" class="badge badge-latency hidden">— ms</div>
+      <button id="metrics-btn" class="btn-ghost" title="Observability metrics">📊 Metrics</button>
+      <button id="auth-btn" class="btn-ghost" title="Authentication">🔐 Sign In</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <!-- LEFT SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h2>Documents</h2>
+        <span id="doc-count" class="badge badge-count">0</span>
+      </div>
+
+      <!-- Upload dropzone -->
+      <div class="dropzone" id="dropzone">
+        <div class="dropzone-inner">
+          <span class="dropzone-icon">📄</span>
+          <p class="dropzone-label">Drop files here</p>
+          <p class="dropzone-hint">PDF · DOCX · TXT · MD · PPTX</p>
+          <label class="btn-primary btn-sm" for="file-input">Browse Files</label>
+          <input type="file" id="file-input" accept=".pdf,.docx,.txt,.md,.pptx" multiple hidden />
+        </div>
+      </div>
+
+      <!-- Upload progress -->
+      <div id="upload-progress" class="progress-container hidden">
+        <div class="progress-bar-track">
+          <div class="progress-bar-fill" id="progress-fill"></div>
+        </div>
+        <span id="progress-label" class="progress-label">Uploading…</span>
+      </div>
+
+      <!-- Document list -->
+      <div class="doc-list" id="doc-list">
+        <div class="empty-state" id="doc-empty">
+          <span>No documents yet.</span>
+          <span class="hint">Upload a file to get started.</span>
+        </div>
+      </div>
+
+      <!-- Scope toggle -->
+      <div class="scope-section" id="scope-section" style="display:none">
+        <label class="scope-label">
+          <input type="checkbox" id="scope-toggle" /> Restrict to selected docs
+        </label>
+        <div id="scope-list" class="scope-list"></div>
+      </div>
+    </aside>
+
+    <!-- MAIN CHAT PANEL -->
+    <main class="chat-panel">
+      <!-- Welcome screen -->
+      <div id="welcome-screen" class="welcome-screen">
+        <div class="welcome-icon">🧠</div>
+        <h1>Ask your documents anything</h1>
+        <p>Upload one or more documents, then type a question. Answers are grounded exclusively in your files — no hallucinations.</p>
+        <div class="welcome-chips">
+          <span class="chip" onclick="setQuestion('What is the company leave policy?')">Leave policy</span>
+          <span class="chip" onclick="setQuestion('What are the password requirements?')">Password rules</span>
+          <span class="chip" onclick="setQuestion('What is the annual bonus?')">Annual bonus</span>
+          <span class="chip" onclick="setQuestion('Who do I contact for IT support?')">IT contact</span>
+        </div>
+      </div>
+
+      <!-- Chat messages -->
+      <div class="chat-messages" id="chat-messages"></div>
+
+      <!-- Input area -->
+      <div class="input-area">
+        <div class="input-row">
+          <textarea
+            id="question-input"
+            class="question-input"
+            placeholder="Ask a question about your documents…"
+            rows="1"
+            maxlength="1000"
+          ></textarea>
+          <button id="send-btn" class="btn-send" title="Send (Enter)">
+            <span id="send-icon">➤</span>
+            <span id="send-spinner" class="spinner hidden"></span>
+          </button>
+        </div>
+        <div class="input-footer">
+          <span id="char-count" class="char-count">0 / 1000</span>
+          <span class="input-hint">Enter to send · Shift+Enter for newline</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- RIGHT CHUNKS DRAWER -->
+    <aside class="chunks-drawer" id="chunks-drawer">
+      <div class="drawer-header">
+        <h3>Retrieved Chunks</h3>
+        <button class="btn-ghost btn-xs" id="close-drawer" title="Close">✕</button>
+      </div>
+      <div id="chunks-list" class="chunks-list">
+        <div class="empty-state">Ask a question to see relevant chunks here.</div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- METRICS MODAL -->
+  <div class="modal-overlay hidden" id="metrics-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>📊 Observability Metrics</h2>
+        <button class="btn-ghost" id="close-metrics">✕</button>
+      </div>
+      <div id="metrics-content" class="metrics-grid">
+        <div class="metric-card"><span class="metric-label">Total Requests</span><span class="metric-value" id="m-total">—</span></div>
+        <div class="metric-card"><span class="metric-label">Ask Requests</span><span class="metric-value" id="m-ask">—</span></div>
+        <div class="metric-card"><span class="metric-label">Error Rate</span><span class="metric-value" id="m-err">—</span></div>
+        <div class="metric-card"><span class="metric-label">p50 Latency</span><span class="metric-value" id="m-p50">—</span></div>
+        <div class="metric-card"><span class="metric-label">p95 Latency</span><span class="metric-value" id="m-p95">—</span></div>
+        <div class="metric-card"><span class="metric-label">Total Tokens</span><span class="metric-value" id="m-tokens">—</span></div>
+        <div class="metric-card"><span class="metric-label">Total Cost (USD)</span><span class="metric-value" id="m-cost">—</span></div>
+      </div>
+      <h4 class="traces-title">Recent Traces</h4>
+      <div class="traces-table-wrapper">
+        <table class="traces-table" id="traces-table">
+          <thead><tr><th>Endpoint</th><th>Status</th><th>Latency</th><th>Tokens</th><th>Time</th></tr></thead>
+          <tbody id="traces-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- AUTH MODAL -->
+  <div class="modal-overlay hidden" id="auth-modal">
+    <div class="modal modal-sm">
+      <div class="modal-header">
+        <h2 id="auth-modal-title">🔐 Sign In</h2>
+        <button class="btn-ghost" id="close-auth">✕</button>
+      </div>
+      <div id="auth-form-container">
+        <form id="auth-form" class="auth-form">
+          <div class="form-group" id="username-group" style="display:none">
+            <label for="auth-username">Username</label>
+            <input type="text" id="auth-username" placeholder="Your name" minlength="3" maxlength="50" />
+          </div>
+          <div class="form-group">
+            <label for="auth-email">Email</label>
+            <input type="email" id="auth-email" placeholder="you@example.com" required />
+          </div>
+          <div class="form-group">
+            <label for="auth-password">Password</label>
+            <input type="password" id="auth-password" placeholder="••••••••" required minlength="8" />
+          </div>
+          <div id="auth-error" class="auth-error hidden"></div>
+          <button type="submit" class="btn-primary w-full" id="auth-submit">Sign In</button>
+          <p class="auth-switch">
+            <span id="auth-switch-text">Don't have an account?</span>
+            <button type="button" class="link-btn" id="auth-toggle">Sign Up</button>
+          </p>
+        </form>
+        <div id="auth-success" class="auth-success hidden">
+          <span class="success-icon">✅</span>
+          <p id="auth-success-msg">Signed in successfully!</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

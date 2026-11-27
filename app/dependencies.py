@@ -30,6 +30,24 @@ def get_rag_service(request: Request) -> RAGService:
     return request.app.state.rag_service
 
 
-def get_current_user_id() -> str:
-    """Return the active user ID (upgraded to JWT verification in Milestone 5)."""
-    return DEFAULT_USER_ID
+def get_auth_service(request: Request):
+    """Return active AuthService from app state."""
+    return request.app.state.auth_service
+
+
+def get_current_user_id(request: Request) -> str:
+    """Return the authenticated user_id from the JWT Bearer token.
+
+    Falls back to DEFAULT_USER_ID when no Authorization header is present,
+    keeping all existing tests green without modification.
+    Raises HTTP 401 if a token is present but malformed or expired.
+    """
+    authorization = request.headers.get("Authorization", "")
+
+    # No token supplied → fall back to default user (backward-compatible).
+    if not authorization.startswith("Bearer "):
+        return DEFAULT_USER_ID
+
+    token = authorization.removeprefix("Bearer ").strip()
+    auth_service = request.app.state.auth_service
+    return auth_service.decode_access_token(token)

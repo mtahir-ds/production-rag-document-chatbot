@@ -1,0 +1,7 @@
+import create_hr_policy
+import create_remote_work_policy
+import create_security_policy
+import create_travel_expense_policy
+import create_onboarding_guide
+
+print("All sample documents generated in sample_docs/")

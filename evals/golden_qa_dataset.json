@@ -1,0 +1,303 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "corpus": "TechNova Solutions",
+    "total_questions": 30,
+    "answerable_count": 22,
+    "unanswerable_count": 8,
+    "multi_part_count": 5,
+    "paraphrase_count": 4,
+    "description": "Golden evaluation dataset for RAG pipeline. Answerable questions reference exact facts from the 5-document TechNova corpus. Unanswerable questions test abstention behavior."
+  },
+  "questions": [
+    {
+      "id": "Q01",
+      "type": "answerable",
+      "question": "How many annual paid leave days does a full-time employee receive at TechNova?",
+      "answer": "Full-time employees receive 21 paid leave days per year.",
+      "source_document": "hr_policy.pdf",
+      "section": "Section 1 - Leave Policy"
+    },
+    {
+      "id": "Q02",
+      "type": "answerable",
+      "question": "What percentage of health insurance premium does TechNova cover for employees?",
+      "answer": "TechNova covers 80% of the health insurance premium. Dependent coverage is available at a 40% subsidy.",
+      "source_document": "hr_policy.pdf",
+      "section": "Section 2 - Compensation & Benefits"
+    },
+    {
+      "id": "Q03",
+      "type": "answerable",
+      "question": "What is the company's contribution to the Provident Fund as a percentage of gross salary?",
+      "answer": "The company contributes 10% of gross salary to the Provident Fund. The mandatory employee contribution is 8%.",
+      "source_document": "hr_policy.pdf",
+      "section": "Section 2 - Compensation & Benefits"
+    },
+    {
+      "id": "Q04",
+      "type": "answerable",
+      "question": "When is the annual bonus paid and what is the minimum performance rating required to receive it?",
+      "answer": "The annual bonus (up to 15% of base salary) is paid in March and requires a performance rating of 3.5 out of 5 or higher.",
+      "source_document": "hr_policy.pdf",
+      "section": "Section 2 - Compensation & Benefits",
+      "note": "multi-part"
+    },
+    {
+      "id": "Q05",
+      "type": "answerable",
+      "question": "How long is fully paid maternity leave at TechNova?",
+      "answer": "Maternity leave is 16 weeks, fully paid.",
+      "source_document": "hr_policy.pdf",
+      "section": "Section 1 - Leave Policy"
+    },
+    {
+      "id": "Q06",
+      "type": "answerable",
+      "question": "What performance rating triggers a Performance Improvement Plan, and how many consecutive reviews must result in that rating?",
+      "answer": "Employees rated below 2.5 out of 5 for two consecutive reviews are placed on a Performance Improvement Plan (PIP).",
+      "source_document": "hr_policy.pdf",
+      "section": "Section 3 - Performance Management",
+      "note": "multi-part"
+    },
+    {
+      "id": "Q07",
+      "type": "answerable",
+      "question": "What is the gift value threshold above which an employee must report it to the Ethics Committee?",
+      "answer": "Gifts exceeding PKR 5,000 in value must be reported to the Ethics Committee.",
+      "source_document": "hr_policy.pdf",
+      "section": "Section 4 - Code of Conduct"
+    },
+    {
+      "id": "Q08",
+      "type": "answerable",
+      "question": "Are probationary employees allowed to work from home at TechNova?",
+      "answer": "No. Probationary employees (first 6 months) must work from the office 5 days per week. Remote work is only available to employees with more than 6 months of tenure.",
+      "source_document": "remote_work_policy.docx",
+      "section": "Section 1 - Eligibility"
+    },
+    {
+      "id": "Q09",
+      "type": "answerable",
+      "question": "Which day of the week is mandatory office attendance for all TechNova staff?",
+      "answer": "Fridays are mandatory office days for all staff.",
+      "source_document": "remote_work_policy.docx",
+      "section": "Section 1 - Eligibility"
+    },
+    {
+      "id": "Q10",
+      "type": "answerable",
+      "question": "What is the annual equipment stipend for home internet reimbursement?",
+      "answer": "The annual stipend for home internet is PKR 36,000, reimbursed monthly at PKR 3,000 per month.",
+      "source_document": "remote_work_policy.docx",
+      "section": "Section 2 - Equipment Stipend"
+    },
+    {
+      "id": "Q11",
+      "type": "answerable",
+      "question": "What type of Wi-Fi encryption is prohibited for remote workers at TechNova?",
+      "answer": "WEP and WPA networks are strictly prohibited. Home networks must use WPA3 encryption.",
+      "source_document": "remote_work_policy.docx",
+      "section": "Section 3 - Security Requirements"
+    },
+    {
+      "id": "Q12",
+      "type": "answerable",
+      "question": "What are the core collaboration hours for remote employees?",
+      "answer": "Core collaboration hours are 10:00 to 13:00 PKT daily. Remote employees must also be reachable on Slack between 09:00 and 17:00 PKT.",
+      "source_document": "remote_work_policy.docx",
+      "section": "Section 4 - Performance Expectations"
+    },
+    {
+      "id": "Q13",
+      "type": "answerable",
+      "question": "What is the minimum password length required by TechNova's security policy?",
+      "answer": "The minimum password length is 14 characters. Passwords must also contain uppercase, lowercase, numbers, and at least 2 special characters.",
+      "source_document": "security_policy.txt",
+      "section": "1. PASSWORD POLICY"
+    },
+    {
+      "id": "Q14",
+      "type": "answerable",
+      "question": "How often do employee passwords expire according to the security policy?",
+      "answer": "Passwords expire every 90 days, and the last 12 passwords cannot be reused.",
+      "source_document": "security_policy.txt",
+      "section": "1. PASSWORD POLICY"
+    },
+    {
+      "id": "Q15",
+      "type": "answerable",
+      "question": "What data classification level applies to client data, and what encryption standard is required for it?",
+      "answer": "Client data is classified as Level 3 (Confidential). Level 3 and Level 4 data must be encrypted at rest using AES-256.",
+      "source_document": "security_policy.txt",
+      "section": "2. DATA CLASSIFICATION",
+      "note": "multi-part"
+    },
+    {
+      "id": "Q16",
+      "type": "answerable",
+      "question": "Within how many hours must a security incident be reported, and to what email address?",
+      "answer": "Security incidents must be reported to security@technova.com within 1 hour of detection.",
+      "source_document": "security_policy.txt",
+      "section": "3. INCIDENT RESPONSE"
+    },
+    {
+      "id": "Q17",
+      "type": "answerable",
+      "question": "Within how many hours must a terminated employee's account be disabled?",
+      "answer": "Terminated employee accounts must be disabled within 2 hours of HR notification.",
+      "source_document": "security_policy.txt",
+      "section": "4. ACCESS CONTROL"
+    },
+    {
+      "id": "Q18",
+      "type": "answerable",
+      "question": "How many business days in advance must business travel be approved?",
+      "answer": "All business travel must be approved at least 5 business days in advance by the direct manager and Finance.",
+      "source_document": "travel_expense_policy.md",
+      "section": "1. Pre-Approval Requirements"
+    },
+    {
+      "id": "Q19",
+      "type": "answerable",
+      "question": "What is the daily per diem allowance for meals when traveling to Lahore?",
+      "answer": "The daily meal allowance for travel to Lahore is PKR 2,500, with an additional PKR 500 for incidentals, totalling PKR 3,000 per diem.",
+      "source_document": "travel_expense_policy.md",
+      "section": "3. Daily Allowance (Per Diem)"
+    },
+    {
+      "id": "Q20",
+      "type": "answerable",
+      "question": "Is alcohol reimbursable as a travel expense at TechNova?",
+      "answer": "No. Alcohol is not reimbursable under any circumstances.",
+      "source_document": "travel_expense_policy.md",
+      "section": "5. Expense Submission"
+    },
+    {
+      "id": "Q21",
+      "type": "answerable",
+      "question": "What is the reimbursement rate for using a personal vehicle for business travel?",
+      "answer": "Personal vehicle use is reimbursed at PKR 18 per kilometer.",
+      "source_document": "travel_expense_policy.md",
+      "section": "6. Ground Transportation"
+    },
+    {
+      "id": "Q22",
+      "type": "answerable",
+      "question": "How many annual leave days does a part-time employee receive?",
+      "answer": "Part-time employees receive 10 paid leave days per year.",
+      "source_document": "hr_policy.pdf",
+      "section": "Section 1 - Leave Policy",
+      "note": "paraphrase of Q01 from part-time angle"
+    },
+    {
+      "id": "Q23",
+      "type": "answerable",
+      "question": "What standard software is provided to new TechNova employees on Day 1, and what email format is used?",
+      "answer": "Standard software includes Slack, Zoom, MS Office 365, Jira, Confluence, and GitHub. The email format is firstname.lastname@technova.com.",
+      "source_document": "onboarding_guide.pdf",
+      "section": "Section 2 - IT Provisioning",
+      "note": "multi-part"
+    },
+    {
+      "id": "Q24",
+      "type": "answerable",
+      "question": "Within how many days of joining must a new employee enroll in health insurance?",
+      "answer": "Health insurance enrollment must be completed within the first 30 days. After that, employees must wait for the annual open enrollment period.",
+      "source_document": "onboarding_guide.pdf",
+      "section": "Section 4 - Benefits Enrollment"
+    },
+    {
+      "id": "Q25",
+      "type": "answerable",
+      "question": "Who should a new employee contact if they have an IT issue, and what is the extension number?",
+      "answer": "New employees should contact the IT Helpdesk at it-support@technova.com or call extension 2001.",
+      "source_document": "onboarding_guide.pdf",
+      "section": "Section 5 - Key Contacts",
+      "note": "paraphrase"
+    },
+    {
+      "id": "Q26",
+      "type": "answerable",
+      "question": "What is the gym membership subsidy amount and from which month does it become available?",
+      "answer": "A gym membership subsidy of PKR 3,000 per month is available from Month 3 of employment.",
+      "source_document": "onboarding_guide.pdf",
+      "section": "Section 4 - Benefits Enrollment",
+      "note": "multi-part"
+    },
+    {
+      "id": "Q27",
+      "type": "answerable",
+      "question": "How much notice is required before taking unpaid leave?",
+      "answer": "Employees must provide 30 days written notice to take unpaid leave. Unpaid leave can extend up to 6 months.",
+      "source_document": "hr_policy.pdf",
+      "section": "Section 1 - Leave Policy",
+      "note": "paraphrase"
+    },
+    {
+      "id": "Q28",
+      "type": "answerable",
+      "question": "What is the maximum hotel rate allowed per night for international travel?",
+      "answer": "The maximum hotel rate for international travel is USD 200 per night. For domestic travel it is PKR 15,000 per night.",
+      "source_document": "travel_expense_policy.md",
+      "section": "4. Hotel Accommodation",
+      "note": "paraphrase"
+    },
+    {
+      "id": "Q29",
+      "type": "unanswerable",
+      "question": "What is TechNova's policy on employee stock options or equity grants?",
+      "expected_behavior": "abstain",
+      "reason": "No document in the corpus mentions stock options, equity, or ESOPs."
+    },
+    {
+      "id": "Q30",
+      "type": "unanswerable",
+      "question": "What is the company's official stance on office pets or pet-friendly workplaces?",
+      "expected_behavior": "abstain",
+      "reason": "No document mentions pets or pet policies."
+    },
+    {
+      "id": "Q31",
+      "type": "unanswerable",
+      "question": "Does TechNova offer a sabbatical leave program for long-term employees?",
+      "expected_behavior": "abstain",
+      "reason": "Sabbatical leave is not mentioned in any document. Only annual, sick, maternity, paternity, and unpaid leave are covered."
+    },
+    {
+      "id": "Q32",
+      "type": "unanswerable",
+      "question": "What is TechNova's parental leave policy for adoptive parents?",
+      "expected_behavior": "abstain",
+      "reason": "Only biological maternity (16 weeks) and paternity (2 weeks) leave are mentioned. Adoptive parent leave is not addressed."
+    },
+    {
+      "id": "Q33",
+      "type": "unanswerable",
+      "question": "What is the company cafeteria menu and are meal subsidies provided?",
+      "expected_behavior": "abstain",
+      "reason": "No document mentions a cafeteria, meal subsidies, or food-related office benefits."
+    },
+    {
+      "id": "Q34",
+      "type": "unanswerable",
+      "question": "How does TechNova handle disputes between employees through mediation or arbitration?",
+      "expected_behavior": "abstain",
+      "reason": "The documents mention a disciplinary process but do not describe a formal mediation or arbitration procedure."
+    },
+    {
+      "id": "Q35",
+      "type": "unanswerable",
+      "question": "What is TechNova's policy on using personal AI tools like ChatGPT or Copilot for work tasks?",
+      "expected_behavior": "abstain",
+      "reason": "No document addresses the use of personal AI tools or generative AI at work."
+    },
+    {
+      "id": "Q36",
+      "type": "unanswerable",
+      "question": "What is the company's flexi-time or compressed workweek policy?",
+      "expected_behavior": "abstain",
+      "reason": "No document mentions flexi-time arrangements or compressed workweeks. Only remote work eligibility and core hours are described."
+    }
+  ]
+}

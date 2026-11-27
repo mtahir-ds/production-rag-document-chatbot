@@ -225,3 +225,109 @@ class DatabaseManager:
             )
             return cursor.rowcount > 0
 
+    # --- Observability Metrics Queries (Bonus B3) ---
+
+    def get_metrics_summary(self) -> dict:
+        """Compute aggregated observability metrics across all requests."""
+        with self.connection() as conn:
+            totals = conn.execute(
+                """
+                SELECT
+                    COUNT(*)                             AS total_requests,
+                    SUM(CASE WHEN endpoint = '/api/chat/ask' THEN 1 ELSE 0 END) AS ask_requests,
+                    SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END)         AS error_count,
+                    SUM(prompt_tokens)                   AS total_prompt_tokens,
+                    SUM(completion_tokens)               AS total_completion_tokens,
+                    SUM(estimated_cost_usd)              AS total_estimated_cost_usd
+                FROM request_metrics;
+                """
+            ).fetchone()
+
+            # Fetch all latencies to compute percentiles in Python.
+            rows = conn.execute(
+                "SELECT latency_ms FROM request_metrics ORDER BY latency_ms;"
+            ).fetchall()
+            latencies = [r["latency_ms"] for r in rows]
+
+        n = len(latencies)
+        if n == 0:
+            p50 = p95 = 0.0
+        else:
+            p50 = latencies[int(n * 0.50)]
+            p95 = latencies[min(int(n * 0.95), n - 1)]
+
+        total = totals["total_requests"] or 0
+        errors = totals["error_count"] or 0
+        return {
+            "total_requests": total,
+            "ask_requests": totals["ask_requests"] or 0,
+            "error_count": errors,
+            "error_rate": round(errors / total, 4) if total else 0.0,
+            "p50_latency_ms": round(p50, 2),
+            "p95_latency_ms": round(p95, 2),
+            "total_prompt_tokens": totals["total_prompt_tokens"] or 0,
+            "total_completion_tokens": totals["total_completion_tokens"] or 0,
+            "total_estimated_cost_usd": round(totals["total_estimated_cost_usd"] or 0.0, 8),
+        }
+
+    def get_recent_traces(self, limit: int = 100) -> list[dict]:
+        """Return the most recent request trace records up to `limit`."""
+        with self.connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT request_id, endpoint, method, status_code, latency_ms,
+                       retrieval_ms, llm_ms, prompt_tokens, completion_tokens,
+                       estimated_cost_usd, error_message, created_at
+                FROM request_metrics
+                ORDER BY created_at DESC
+                LIMIT ?;
+                """,
+                (limit,),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    # --- User CRUD (Bonus B1) ---
+
+    def create_user(
+        self,
+        *,
+        user_id: str,
+        email: str,
+        username: str,
+        password_hash: str,
+    ) -> dict:
+        """Insert a new user record and return it."""
+        now = datetime.now(timezone.utc).isoformat()
+        with self.connection() as conn:
+            conn.execute(
+                """
+                INSERT INTO users (user_id, email, username, password_hash, created_at)
+                VALUES (?, ?, ?, ?, ?);
+                """,
+                (user_id, email, username, password_hash, now),
+            )
+        return {
+            "user_id": user_id,
+            "email": email,
+            "username": username,
+            "created_at": now,
+        }
+
+    def get_user_by_email(self, email: str) -> dict | None:
+        """Fetch a user record by email address."""
+        with self.connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM users WHERE email = ?;",
+                (email,),
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_user_by_id(self, user_id: str) -> dict | None:
+        """Fetch a user record by user_id."""
+        with self.connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM users WHERE user_id = ?;",
+                (user_id,),
+            ).fetchone()
+            return dict(row) if row else None
+

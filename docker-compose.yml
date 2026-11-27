@@ -1,0 +1,40 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      # Gemini (required)
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_LLM_MODEL=${GEMINI_LLM_MODEL:-gemini-2.5-flash}
+      - GEMINI_EMBEDDING_MODEL=${GEMINI_EMBEDDING_MODEL:-gemini-embedding-001}
+      # Qdrant — use 'local' mode (backed by named volume) or set 'cloud'
+      - QDRANT_MODE=${QDRANT_MODE:-local}
+      - QDRANT_PATH=/app/qdrant_storage
+      - QDRANT_URL=${QDRANT_URL:-}
+      - QDRANT_API_KEY=${QDRANT_API_KEY:-}
+      # SQLite
+      - SQLITE_DB_PATH=/app/data/rag_service.db
+      - UPLOAD_DIR=/app/uploads
+      # Auth
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
+      - JWT_EXPIRE_MINUTES=${JWT_EXPIRE_MINUTES:-1440}
+      # Misc
+      - APP_ENV=${APP_ENV:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - rag_data:/app/data
+      - rag_uploads:/app/uploads
+      - rag_qdrant:/app/qdrant_storage
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  rag_data:
+  rag_uploads:
+  rag_qdrant:
