@@ -192,3 +192,10 @@ class MetricsSummaryResponse(BaseModel):
     total_completion_tokens: int
     total_estimated_cost_usd: float
     recent_traces: list[RequestMetricItem]
+
+
+class MetricsTracesResponse(BaseModel):
+    """Paginated list of raw request trace records."""
+
+    total: int
+    traces: list[RequestMetricItem]

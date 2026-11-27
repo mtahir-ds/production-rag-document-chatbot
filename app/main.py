@@ -5,12 +5,14 @@ import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import AsyncIterator
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 
 from app.config import Settings, get_settings
@@ -18,9 +20,12 @@ from app.generation import GeminiGenerationService
 from app.logging_config import configure_logging, request_id_ctx
 from app.rate_limiter import limiter
 from app.retrieval import RetrievalService
+from app.routes.auth import router as auth_router
 from app.routes.chat import router as chat_router
 from app.routes.documents import router as documents_router
+from app.routes.metrics import router as metrics_router
 from app.schemas import ErrorResponse, HealthResponse
+from app.services.auth_service import AuthService
 from app.services.database import DatabaseManager
 from app.services.embeddings import GeminiEmbeddingService
 from app.services.exceptions import ExternalServiceError
@@ -73,6 +78,7 @@ def create_app(
             retrieval=retrieval_service,
             generation=generation_service,
         )
+        auth_service = AuthService(settings)
         app_instance.state.settings = settings
         app_instance.state.db = db
         app_instance.state.embeddings = embeddings
@@ -81,6 +87,7 @@ def create_app(
         app_instance.state.retrieval_service = retrieval_service
         app_instance.state.generation_service = generation_service
         app_instance.state.rag_service = rag_service
+        app_instance.state.auth_service = auth_service
 
     @asynccontextmanager
     async def lifespan(app_instance: FastAPI) -> AsyncIterator[None]:
@@ -109,6 +116,7 @@ def create_app(
     # Initialize state safely for tests that call routes without triggering lifespan.
     app.state.settings = settings
     app.state.db = db
+    app.state.auth_service = AuthService(settings)
     limiter.enabled = enable_rate_limit
     limiter.reset()
     app.state.limiter = limiter
@@ -228,8 +236,10 @@ def create_app(
             content=payload.model_dump(),
         )
 
+    app.include_router(auth_router)
     app.include_router(documents_router)
     app.include_router(chat_router)
+    app.include_router(metrics_router)
 
     @app.get(
         "/health",
@@ -253,6 +263,11 @@ def create_app(
             database="ok",
             timestamp=datetime.now(timezone.utc),
         )
+
+    # Serve the frontend SPA at root — MUST be mounted last so it doesn't shadow API routes.
+    _frontend = Path("frontend")
+    if _frontend.is_dir():
+        app.mount("/", StaticFiles(directory=str(_frontend), html=True), name="frontend")
 
     return app
 
