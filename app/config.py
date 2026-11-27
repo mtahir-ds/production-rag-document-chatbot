@@ -29,7 +29,7 @@ class Settings(BaseSettings):
 
     # --- Google Gemini API ---
     gemini_api_key: str = Field(default="")
-    gemini_llm_model: str = Field(default="gemini-2.5-flash")
+    gemini_llm_model: str = Field(default="gemini-2.0-flash")
     gemini_embedding_model: str = Field(default="gemini-embedding-001")
     embedding_dimensions: int = Field(default=1536, ge=128, le=3072)
 
