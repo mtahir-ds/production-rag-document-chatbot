@@ -17,6 +17,7 @@ from slowapi.errors import RateLimitExceeded
 
 from app.config import Settings, get_settings
 from app.generation import GeminiGenerationService
+from app.services.groq_service import GroqGenerationService
 from app.logging_config import configure_logging, request_id_ctx
 from app.rate_limiter import limiter
 from app.retrieval import RetrievalService
@@ -71,7 +72,14 @@ def create_app(
             embeddings=embeddings,
             vector_store=vector_store,
         )
-        generation_service = generation_override or GeminiGenerationService(settings)
+        if generation_override:
+            generation_service = generation_override
+        elif settings.llm_provider == "groq":
+            generation_service = GroqGenerationService(settings)
+            logger.info("LLM provider: Groq (%s)", settings.groq_model)
+        else:
+            generation_service = GeminiGenerationService(settings)
+            logger.info("LLM provider: Gemini (%s)", settings.gemini_llm_model)
         rag_service = RAGService(
             settings=settings,
             db=db,
